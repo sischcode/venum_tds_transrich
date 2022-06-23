@@ -1,0 +1,16 @@
+[package]
+name = "venum_tds_transrich"
+version = "0.1.0"
+authors = ["Joerg Sischka <sischcode@gmx.net>"]
+edition = "2021"
+rust-version = "1.61"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+venum = { path = "../venum", version = "0.1.0" }
+venum_tds = { path = "../venum_tds", version = "0.1.0" }
+thiserror = "1.0"
+strum = "0.24"
+strum_macros = "0.24"
+regex = "1.5"
