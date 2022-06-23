@@ -2,6 +2,8 @@
 name = "venum_tds_transrich"
 version = "0.1.0"
 authors = ["Joerg Sischka <sischcode@gmx.net>"]
+readme = "README.md"
+keywords = ["rust", "venum", "table", "tabular", "row", "cell", "csv", "transformation", "enrichment", "manipulation"]
 edition = "2021"
 rust-version = "1.61"
 
