@@ -11,10 +11,16 @@ pub enum WrappedErrors {
 }
 
 #[derive(Debug, PartialEq, Display, Clone)]
+pub enum ContainerMutErrors {
+    Generic { msg: String },
+}
+
+#[derive(Debug, PartialEq, Display, Clone)]
 pub enum VenumTdsTransRichError {
     Generic { msg: String },
     Wrapped(WrappedErrors),
     Split(SplitError),
+    ContainerMut(ContainerMutErrors),
 }
 
 #[derive(Error, Debug, PartialEq, Clone)]
