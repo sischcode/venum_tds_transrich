@@ -4,7 +4,7 @@ use venum_tds::traits::{DataContainer, DataEntry};
 use crate::errors::{ContainerMutErrors, Result, VenumTdsTransRichError};
 
 pub trait TransrichContainerInplace<D: DataEntry, C: DataContainer<D>> {
-    fn apply(&mut self, container: &mut C) -> Result<()>; // TODO: not really happy about that. the mut is just needed for the add-transricher, so that we can mem::take
+    fn apply(&self, container: &mut C) -> Result<()>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,7 +23,7 @@ where
     D: DataEntry,
     C: DataContainer<D>,
 {
-    fn apply(&mut self, data_container: &mut C) -> Result<()> {
+    fn apply(&self, data_container: &mut C) -> Result<()> {
         let container_entry = data_container.get_by_idx_mut(self.from);
         match container_entry {
             None => Err(VenumTdsTransRichError::ContainerMut(
@@ -54,7 +54,7 @@ where
     D: DataEntry,
     C: DataContainer<D>,
 {
-    fn apply(&mut self, data_container: &mut C) -> Result<()> {
+    fn apply(&self, data_container: &mut C) -> Result<()> {
         let deleted = self
             .indices
             .iter()
@@ -72,11 +72,11 @@ pub struct ContainerAppendEntry<T: DataEntry>(pub T);
 
 impl<D, C> TransrichContainerInplace<D, C> for ContainerAppendEntry<D>
 where
-    D: DataEntry + Default,
+    D: DataEntry + Clone + Default,
     C: DataContainer<D>,
 {
-    fn apply(&mut self, data_container: &mut C) -> Result<()> {
-        data_container.add(std::mem::take(&mut self.0));
+    fn apply(&self, data_container: &mut C) -> Result<()> {
+        data_container.add(self.0.clone());
         Ok(())
     }
 }
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_mutate_index_of_tds_data_cell() {
-        let mut m = MutateEntriesIndices::new(0, 1);
+        let m = MutateEntriesIndices::new(0, 1);
 
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -119,7 +119,7 @@ mod tests {
             1,
         ));
 
-        let mut container_transricher = DeleteEntriesByIndices::new(vec![0, 1]);
+        let container_transricher = DeleteEntriesByIndices::new(vec![0, 1]);
         container_transricher.apply(&mut c).unwrap();
 
         assert_eq!(0, c.0.len());
@@ -129,14 +129,14 @@ mod tests {
     #[should_panic(expected = "Wrapped(VenumTdsError(DataAccess(IllegalIdxAccess { idx: 0 })))")]
     fn test_delete_from_container_err() {
         let mut c = DataCellRow::new();
-        let mut container_transricher = DeleteEntriesByIndices::new(vec![0]);
+        let container_transricher = DeleteEntriesByIndices::new(vec![0]);
         container_transricher.apply(&mut c).unwrap();
     }
 
     #[test]
     fn test_add_to_container() {
         let mut c = DataCellRow::new();
-        let mut container_transricher = ContainerAppendEntry(DataCell::new_without_data(
+        let container_transricher = ContainerAppendEntry(DataCell::new_without_data(
             Value::bool_default(),
             String::from("col1"),
             0,
