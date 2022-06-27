@@ -89,8 +89,8 @@ mod tests {
         assert!(dc_left.get_data().is_some());
         assert!(dc_right.get_data().is_some());
 
-        assert_eq!(&Value::Bool(true), dc_left.get_data().as_ref().unwrap());
-        assert_eq!(&Value::Float32(1.12), dc_right.get_data().as_ref().unwrap());
+        assert_eq!(&Value::Bool(true), dc_left.get_data().unwrap());
+        assert_eq!(&Value::Float32(1.12), dc_right.get_data().unwrap());
     }
 
     #[test]
@@ -117,7 +117,7 @@ mod tests {
         assert!(dc_left.get_data().is_some());
         assert!(dc_right.get_data().is_some());
 
-        assert_eq!(&Value::Float32(1.12), dc_left.get_data().as_ref().unwrap());
-        assert_eq!(&Value::Float32(2.23), dc_right.get_data().as_ref().unwrap());
+        assert_eq!(&Value::Float32(1.12), dc_left.get_data().unwrap());
+        assert_eq!(&Value::Float32(2.23), dc_right.get_data().unwrap());
     }
 }
