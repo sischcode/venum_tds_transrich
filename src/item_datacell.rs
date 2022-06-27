@@ -57,7 +57,10 @@ mod tests {
     use venum::venum::Value;
     use venum_tds::{cell::DataCell, traits::DataAccess};
 
-    use crate::{traits::item::DivideBy, value::ValueStringSeparatorCharDivider};
+    use crate::{
+        traits::item::DivideBy,
+        value::{ValueStringRegexPairSplitter, ValueStringSeparatorCharDivider},
+    };
 
     #[test]
     fn test_split_datacell_by_char_seperator_divider() {
@@ -86,5 +89,33 @@ mod tests {
 
         assert_eq!(&Value::Bool(true), dc_left.get_data().as_ref().unwrap());
         assert_eq!(&Value::Float32(1.12), dc_right.get_data().as_ref().unwrap());
+    }
+
+    #[test]
+    fn test_split_datacell_by_regex_divider() {
+        let dc1 = DataCell::new(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+            Some(Value::from(String::from("1.12 2.23"))),
+        );
+
+        let sp =
+            ValueStringRegexPairSplitter::from(String::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)"), true)
+                .unwrap();
+
+        let mut dc_left =
+            DataCell::new_without_data(Value::float32_default(), String::from("f32_val_left"), 1);
+        let mut dc_right =
+            DataCell::new_without_data(Value::float32_default(), String::from("f32_val_right"), 2);
+
+        let res = dc1.divide_by(&sp, &mut dc_left, &mut dc_right);
+        assert!(res.is_ok());
+
+        assert!(dc_left.get_data().is_some());
+        assert!(dc_right.get_data().is_some());
+
+        assert_eq!(&Value::Float32(1.12), dc_left.get_data().as_ref().unwrap());
+        assert_eq!(&Value::Float32(2.23), dc_right.get_data().as_ref().unwrap());
     }
 }
