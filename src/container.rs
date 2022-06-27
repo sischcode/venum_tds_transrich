@@ -1,33 +1,29 @@
-use venum_tds::errors::VenumTdsError;
-use venum_tds::traits::{DataContainer, DataEntry};
+use venum_tds::traits::{DataAccess, DataContainer, DataIdent};
 
-use crate::errors::{ContainerMutErrors, Result, VenumTdsTransRichError};
-
-pub trait TransrichContainerInplace<D: DataEntry, C: DataContainer<D>> {
-    fn apply(&self, container: &mut C) -> Result<()>;
-}
+use crate::{
+    errors::{ContainerOpsErrors, Result, VenumTdsTransRichError},
+    traits::container::TransrichContainerInplace,
+};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MutateEntriesIndices {
+pub struct MutateItemIndex {
     pub from: usize,
     pub to: usize,
 }
-impl MutateEntriesIndices {
+impl MutateItemIndex {
     pub fn new(from: usize, to: usize) -> Self {
         Self { from, to }
     }
 }
-
-impl<D, C> TransrichContainerInplace<D, C> for MutateEntriesIndices
+impl<C> TransrichContainerInplace<C> for MutateItemIndex
 where
-    D: DataEntry,
-    C: DataContainer<D>,
+    C: DataContainer,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
         let container_entry = data_container.get_by_idx_mut(self.from);
         match container_entry {
-            None => Err(VenumTdsTransRichError::ContainerMut(
-                ContainerMutErrors::Generic {
+            None => Err(VenumTdsTransRichError::ContainerOps(
+                ContainerOpsErrors::Generic {
                     msg: String::from("No DataEntry with idx {self.from}. Can't mutate index."),
                 },
             )),
@@ -40,40 +36,24 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DeleteEntriesByIndices {
-    indices: Vec<usize>,
-}
-impl DeleteEntriesByIndices {
-    pub fn new(indices: Vec<usize>) -> Self {
-        Self { indices }
-    }
-}
-
-impl<D, C> TransrichContainerInplace<D, C> for DeleteEntriesByIndices
+pub struct DeleteItemByIndex(pub usize);
+impl<C> TransrichContainerInplace<C> for DeleteItemByIndex
 where
-    D: DataEntry,
-    C: DataContainer<D>,
+    C: DataContainer,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
-        let deleted = self
-            .indices
-            .iter()
-            .map(|&idx| data_container.del_by_idx(idx))
-            .collect::<std::result::Result<Vec<D>, VenumTdsError>>();
-
-        if let Err(e) = deleted {
-            return Err(VenumTdsTransRichError::from(e));
+        match data_container.del_by_idx(self.0) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(VenumTdsTransRichError::from(e)),
         }
-        Ok(())
     }
 }
 
-pub struct ContainerAppendEntry<T: DataEntry>(pub T);
-
-impl<D, C> TransrichContainerInplace<D, C> for ContainerAppendEntry<D>
+pub struct AddItem<T: DataIdent + DataAccess>(pub T);
+impl<C, D> TransrichContainerInplace<C> for AddItem<D>
 where
-    D: DataEntry + Clone + Default,
-    C: DataContainer<D>,
+    D: DataIdent + DataAccess + Clone + Default,
+    C: DataContainer<ITEM = D>,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
         data_container.add(self.0.clone());
@@ -92,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_mutate_index_of_tds_data_cell() {
-        let m = MutateEntriesIndices::new(0, 1);
+        let m = MutateItemIndex::new(0, 1);
 
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -119,8 +99,11 @@ mod tests {
             1,
         ));
 
-        let container_transricher = DeleteEntriesByIndices::new(vec![0, 1]);
+        let container_transricher = DeleteItemByIndex(0);
         container_transricher.apply(&mut c).unwrap();
+
+        let container_transricher2 = DeleteItemByIndex(1);
+        container_transricher2.apply(&mut c).unwrap();
 
         assert_eq!(0, c.0.len());
     }
@@ -129,14 +112,14 @@ mod tests {
     #[should_panic(expected = "Wrapped(VenumTdsError(DataAccess(IllegalIdxAccess { idx: 0 })))")]
     fn test_delete_from_container_err() {
         let mut c = DataCellRow::new();
-        let container_transricher = DeleteEntriesByIndices::new(vec![0]);
+        let container_transricher = DeleteItemByIndex(0);
         container_transricher.apply(&mut c).unwrap();
     }
 
     #[test]
     fn test_add_to_container() {
         let mut c = DataCellRow::new();
-        let container_transricher = ContainerAppendEntry(DataCell::new_without_data(
+        let container_transricher = AddItem(DataCell::new_without_data(
             Value::bool_default(),
             String::from("col1"),
             0,
@@ -160,16 +143,17 @@ mod tests {
             1,
         ));
 
-        let mut transrichers: Vec<Box<dyn TransrichContainerInplace<DataCell, DataCellRow>>> =
+        let mut transrichers: Vec<Box<dyn TransrichContainerInplace<DataCellRow>>> =
             Vec::with_capacity(3);
 
-        transrichers.push(Box::new(ContainerAppendEntry(DataCell::new_without_data(
+        transrichers.push(Box::new(AddItem(DataCell::new_without_data(
             Value::bool_default(),
             String::from("col3"),
             2,
         ))));
-        transrichers.push(Box::new(DeleteEntriesByIndices::new(vec![1, 2])));
-        transrichers.push(Box::new(MutateEntriesIndices::new(0, 10)));
+        transrichers.push(Box::new(DeleteItemByIndex(1)));
+        transrichers.push(Box::new(DeleteItemByIndex(2)));
+        transrichers.push(Box::new(MutateItemIndex::new(0, 10)));
 
         transrichers
             .iter_mut()
