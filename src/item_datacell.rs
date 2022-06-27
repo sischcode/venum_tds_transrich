@@ -65,7 +65,7 @@ mod tests {
             Value::string_default(),
             String::from("col1"),
             0,
-            Some(Value::from(String::from("true;1.123"))),
+            Some(Value::from(String::from("true;1.12"))),
         );
 
         let sp = ValueStringSeparatorCharDivider {
@@ -76,7 +76,7 @@ mod tests {
         let mut dc_left =
             DataCell::new_without_data(Value::bool_default(), String::from("is_true"), 1);
         let mut dc_right =
-            DataCell::new_without_data(Value::decimal_default(), String::from("dec_val"), 2);
+            DataCell::new_without_data(Value::float32_default(), String::from("f32_val"), 2);
 
         let res = dc1.divide_by(&sp, &mut dc_left, &mut dc_right);
         assert!(res.is_ok());
@@ -85,9 +85,6 @@ mod tests {
         assert!(dc_right.get_data().is_some());
 
         assert_eq!(&Value::Bool(true), dc_left.get_data().as_ref().unwrap());
-        assert_eq!(
-            &Value::decimal_from_f64(1.123),
-            dc_right.get_data().as_ref().unwrap()
-        );
+        assert_eq!(&Value::Float32(1.12), dc_right.get_data().as_ref().unwrap());
     }
 }
