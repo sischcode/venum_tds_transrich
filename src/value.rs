@@ -3,7 +3,7 @@ use venum::venum::Value;
 
 use crate::{
     errors::{Result, VenumTdsTransRichError, SplitError},
-    traits::value::{DivideValue, SplitValue}
+    traits::shared::{Splitter, Divider},
 };
 
 #[derive(Debug)]
@@ -12,7 +12,9 @@ pub struct ValueStringSeparatorCharDivider {
     pub split_none: bool,
 }
 
-impl DivideValue for ValueStringSeparatorCharDivider {
+impl Divider for ValueStringSeparatorCharDivider {
+    type ITEM = Value;
+
     fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
         if let Some(val) = src {
             match val {
@@ -54,7 +56,9 @@ pub struct ValueStringSeparatorCharSplitter {
     pub split_none_into_num_clones: Option<usize>,
 }
 
-impl SplitValue for ValueStringSeparatorCharSplitter {
+impl Splitter for ValueStringSeparatorCharSplitter {
+    type ITEM = Value;
+
     fn split(&self, src: &Option<Value>) -> Result<Vec<Option<Value>>> {
         match src {
             None => match (&self.split_none, &self.split_none_into_num_clones) {
@@ -120,7 +124,9 @@ impl ValueStringRegexPairSplitter {
     }
 }
 
-impl DivideValue for ValueStringRegexPairSplitter {
+impl Divider for ValueStringRegexPairSplitter {
+    type ITEM = Value;
+
     fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
         if let Some(val) = src {
             match val {

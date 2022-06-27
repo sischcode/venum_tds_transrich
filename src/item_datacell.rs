@@ -3,13 +3,15 @@ use venum_tds::cell::DataCell;
 
 use crate::{
     errors::{Result, SplitError, VenumTdsTransRichError},
-    traits::{item::DivideBy, value::DivideValue},
+    traits::{item::DivideUsing, shared::Divider},
 };
 
-impl<S: DivideValue> DivideBy<S, DataCell> for DataCell {
-    fn divide_by(
+impl<D: Divider<ITEM = Value>> DivideUsing<D> for DataCell {
+    type ITEM = DataCell;
+
+    fn divide_using(
         &self,
-        splitter_impl: &S,
+        splitter_impl: &D,
         dst_left: &mut DataCell,
         dst_right: &mut DataCell,
     ) -> Result<()> {
@@ -58,7 +60,7 @@ mod tests {
     use venum_tds::{cell::DataCell, traits::DataAccess};
 
     use crate::{
-        traits::item::DivideBy,
+        traits::item::DivideUsing,
         value::{ValueStringRegexPairSplitter, ValueStringSeparatorCharDivider},
     };
 
@@ -81,7 +83,7 @@ mod tests {
         let mut dc_right =
             DataCell::new_without_data(Value::float32_default(), String::from("f32_val"), 2);
 
-        let res = dc1.divide_by(&sp, &mut dc_left, &mut dc_right);
+        let res = dc1.divide_using(&sp, &mut dc_left, &mut dc_right);
         assert!(res.is_ok());
 
         assert!(dc_left.get_data().is_some());
@@ -109,7 +111,7 @@ mod tests {
         let mut dc_right =
             DataCell::new_without_data(Value::float32_default(), String::from("f32_val_right"), 2);
 
-        let res = dc1.divide_by(&sp, &mut dc_left, &mut dc_right);
+        let res = dc1.divide_using(&sp, &mut dc_left, &mut dc_right);
         assert!(res.is_ok());
 
         assert!(dc_left.get_data().is_some());
