@@ -5,7 +5,7 @@ authors = ["Joerg Sischka <sischcode@gmx.net>"]
 readme = "README.md"
 keywords = ["rust", "venum", "table", "tabular", "row", "cell", "csv", "transformation", "enrichment", "manipulation"]
 edition = "2021"
-rust-version = "1.61"
+rust-version = "1.62"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,6 +13,5 @@ rust-version = "1.61"
 venum = { path = "../venum", version = "0.1.0" }
 venum_tds = { path = "../venum_tds", version = "0.1.0" }
 thiserror = "1.0"
-strum = "0.24"
 strum_macros = "0.24"
 regex = "1.5"
