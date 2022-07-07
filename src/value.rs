@@ -30,10 +30,10 @@ impl Divider for ValueStringSeparatorCharDivider {
                             None,
                         )));
                     }
-                    return Ok((
+                    Ok((
                         Some(Value::from(String::from(splitted[0]))),
                         Some(Value::from(String::from(splitted[1]))),
-                    ));
+                    ))
                 }
                 _ => Err(VenumTdsTransRichError::Split(SplitError::minim(
                     String::from("Not a Value::String. Can't split."),
@@ -131,7 +131,7 @@ impl Divider for ValueStringRegexPairSplitter {
         if let Some(val) = src {
             match val {
                 Value::String(s) => {
-                    let caps = self.re.captures(&s).ok_or(VenumTdsTransRichError::Split(
+                    let caps = self.re.captures(s).ok_or_else(|| VenumTdsTransRichError::Split(
                         SplitError::from(
                             String::from("No captures, but we need exactly two."),
                             src.clone(),
