@@ -24,11 +24,11 @@ pub enum VenumTdsTransRichError {
 }
 
 #[derive(Error, Debug, PartialEq, Clone)]
-#[error("error: {msg:?}; problem value: {src_val:?}; detail: {detail:?}")]
+#[error("error: {msg:?}; problem value: {src_val:?}. Details: {details:?}")]
 pub struct SplitError {
     msg: String,
     src_val: Option<Value>,
-    detail: Option<String>,
+    details: Option<String>,
 }
 
 impl SplitError {
@@ -36,14 +36,14 @@ impl SplitError {
         Self {
             msg,
             src_val: None,
-            detail: None,
+            details: None,
         }
     }
-    pub fn from(msg: String, src_val: Option<Value>, detail: Option<String>) -> Self {
+    pub fn from(msg: String, src_val: Option<Value>, details: Option<String>) -> Self {
         Self {
             msg,
             src_val,
-            detail,
+            details,
         }
     }
 }

@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Split(SplitError { msg: \"expected 2 tokens as result of split, but got: 1\", src_val: Some(String(\"foo\")), detail: None })"
+        expected = "Split(SplitError { msg: \"expected 2 tokens as result of split, but got: 1\", src_val: Some(String(\"foo\")), details: None })"
     )]
     fn test_divide_seperator_char_err2() {
         let sep = ValueStringSeparatorCharDivider {
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Split(SplitError { msg: \"Value is None, split_none is true, but split_none_into_num_clones is not set. Can't split into undefined number of targets!\", src_val: None, detail: None })"
+        expected = "Split(SplitError { msg: \"Value is None, split_none is true, but split_none_into_num_clones is not set. Can't split into undefined number of targets!\", src_val: None, details: None })"
     )]
     fn test_split_seperator_char_none_err_config() {
         let sep = ValueStringSeparatorCharSplitter {
