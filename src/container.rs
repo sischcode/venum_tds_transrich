@@ -246,6 +246,40 @@ mod tests {
     }
 
     #[test]
+    pub fn test_divide_container_item_using_value_string_separator_char_divider_delete_src() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+            Some(Value::String(String::from("foo:bar"))),
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringSeparatorCharDivider {
+                sep_char: ':',
+                split_none: false,
+            },
+            target_left: (Value::string_default(), 1, String::from("col2")),
+            target_right: (Value::string_default(), 2, String::from("Col3")),
+            delete_source_item: true,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(2, c.0.len());
+        assert_eq!(
+            &Value::String(String::from("foo")),
+            c.get_by_idx(1).unwrap().get_data().unwrap()
+        );
+        assert_eq!(
+            &Value::String(String::from("bar")),
+            c.get_by_idx(2).unwrap().get_data().unwrap()
+        );
+    }
+
+    #[test]
     pub fn test_divide_container_item_using_value_string_separator_char_divider_none() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -268,6 +302,33 @@ mod tests {
         div_at.apply(&mut c).unwrap();
 
         assert_eq!(3, c.0.len());
+        assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
+        assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_separator_char_divider_none_delete_src() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringSeparatorCharDivider {
+                sep_char: ':',
+                split_none: true,
+            },
+            target_left: (Value::string_default(), 1, String::from("col2")),
+            target_right: (Value::string_default(), 2, String::from("Col3")),
+            delete_source_item: true,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(2, c.0.len());
         assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
         assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
     }
@@ -335,6 +396,41 @@ mod tests {
     }
 
     #[test]
+    pub fn test_divide_container_item_using_value_string_regex_pair_divider_delete_src() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+            Some(Value::String(String::from("1.12 2.23"))),
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringRegexPairDivider::from(
+                "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
+                true,
+            )
+            .unwrap(),
+            target_left: (Value::float32_default(), 1, String::from("col2")),
+            target_right: (Value::float32_default(), 2, String::from("Col3")),
+            delete_source_item: true,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(2, c.0.len());
+        assert_eq!(
+            &Value::Float32(1.12_f32),
+            c.get_by_idx(1).unwrap().get_data().unwrap()
+        );
+        assert_eq!(
+            &Value::Float32(2.23_f32),
+            c.get_by_idx(2).unwrap().get_data().unwrap()
+        );
+    }
+
+    #[test]
     pub fn test_divide_container_item_using_value_string_regex_pair_divider_none() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -358,6 +454,34 @@ mod tests {
         div_at.apply(&mut c).unwrap();
 
         assert_eq!(3, c.0.len());
+        assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
+        assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none_delete_src() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringRegexPairDivider::from(
+                "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
+                true,
+            )
+            .unwrap(),
+            target_left: (Value::float32_default(), 1, String::from("col2")),
+            target_right: (Value::float32_default(), 2, String::from("Col3")),
+            delete_source_item: true,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(2, c.0.len());
         assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
         assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
     }
