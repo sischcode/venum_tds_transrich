@@ -3,7 +3,7 @@ use venum::venum::Value;
 
 use crate::{
     errors::{Result, VenumTdsTransRichError, SplitError},
-    traits::shared::{Splitter, Divider},
+    traits::shared::{Split, Divide},
 };
 
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct ValueStringSeparatorCharDivider {
     pub split_none: bool,
 }
 
-impl Divider for ValueStringSeparatorCharDivider {
+impl Divide for ValueStringSeparatorCharDivider {
     type ITEM = Value;
 
     fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
@@ -56,7 +56,7 @@ pub struct ValueStringSeparatorCharSplitter {
     pub split_none_into_num_clones: Option<usize>,
 }
 
-impl Splitter for ValueStringSeparatorCharSplitter {
+impl Split for ValueStringSeparatorCharSplitter {
     type ITEM = Value;
 
     fn split(&self, src: &Option<Value>) -> Result<Vec<Option<Value>>> {
@@ -108,23 +108,23 @@ impl Splitter for ValueStringSeparatorCharSplitter {
 
 
 #[derive(Debug)]
-pub struct ValueStringRegexPairSplitter {
+pub struct ValueStringRegexPairDivider {
     pub re: Regex,
     pub split_none: bool,
 }
 
-impl ValueStringRegexPairSplitter {
+impl ValueStringRegexPairDivider {
     pub fn from(regex_pattern: String, split_none: bool) -> Result<Self> {
         let re = Regex::new(regex_pattern.as_str()).map_err(|e| {
             let mut err_msg = format!("{}", e);
             err_msg.push_str(" (RegexPairSplitter, ERROR_ON_REGEX_COMPILE)");
             VenumTdsTransRichError::Split(SplitError::minim(err_msg))
         })?;
-        Ok(ValueStringRegexPairSplitter { re, split_none })
+        Ok(ValueStringRegexPairDivider { re, split_none })
     }
 }
 
-impl Divider for ValueStringRegexPairSplitter {
+impl Divide for ValueStringRegexPairDivider {
     type ITEM = Value;
 
     fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn test_split_regex_pair() {
         let sep_res =
-            ValueStringRegexPairSplitter::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairDivider::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
@@ -292,7 +292,7 @@ mod tests {
     )]
     fn test_split_regex_err_no_captures() {
         let sep_res =
-            ValueStringRegexPairSplitter::from("(\\d+\\.\\d+).*(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairDivider::from("(\\d+\\.\\d+).*(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
@@ -306,7 +306,7 @@ mod tests {
     )]
     fn test_split_regex_err_too_few_capture_groups() {
         let sep_res =
-            ValueStringRegexPairSplitter::from("(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairDivider::from("(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_split_regex_pair_illegal_regex() {
-        let sep_res = ValueStringRegexPairSplitter::from("FWPUJWDJW/)!(!()?))".to_string(), true);
+        let sep_res = ValueStringRegexPairDivider::from("FWPUJWDJW/)!(!()?))".to_string(), true);
         assert!(sep_res.is_err());
     }
 }

@@ -3,11 +3,11 @@ use venum_tds::cell::DataCell;
 
 use crate::{
     errors::{Result, SplitError, VenumTdsTransRichError},
-    traits::{item::DivideUsing, shared::Divider},
+    traits::{item::DivideUsing, shared::Divide},
 };
 
-impl<D: Divider<ITEM = Value>> DivideUsing<D> for DataCell {
-    type ITEM = DataCell;
+impl<D: Divide<ITEM = Value>> DivideUsing<D> for DataCell {
+    type ITEM = Self;
 
     fn divide_using(
         &self,
@@ -19,22 +19,22 @@ impl<D: Divider<ITEM = Value>> DivideUsing<D> for DataCell {
 
         fn converse_to(val: &Value, type_info: &Value) -> Result<Option<Value>> {
             match val {
-            // we have the same enum variant in src and dst, we can use/clone it as is
-            _ if std::mem::discriminant(val) == std::mem::discriminant(type_info) => {
-                Ok(Some(val.clone()))
+                // we have the same enum variant in src and dst, we can use/clone it as is
+                _ if std::mem::discriminant(val) == std::mem::discriminant(type_info) => {
+                    Ok(Some(val.clone()))
+                }
+                // we have a String variant as src type try converting it to the target type
+                Value::String(s) => {
+                    let transf_val = Value::from_string_with_templ(s, type_info)?;
+                    Ok(transf_val)
+                }
+                // TODO We can do better, but we don't support arbitrary convertions for now...
+                _ => Err(VenumTdsTransRichError::Split(SplitError::from(
+                    format!("type mismatch. {val:?} cannot be parsed/converted/put into destination of type {type_info:?}"),
+                    Some(val.clone()),
+                    None,
+                ))),
             }
-            // we have a String variant as src type try converting it to the target type
-            Value::String(s) => {
-                let transf_val = Value::from_string_with_templ(s, type_info)?;
-                Ok(transf_val)
-            }
-            // We can do better, but we don't support arbitrary convertions for now...
-            _ => Err(VenumTdsTransRichError::Split(SplitError::from(
-                format!("type mismatch. {val:?} cannot be parsed/converted/put into destination of type {type_info:?}"),
-                Some(val.clone()),
-                None,
-            ))),
-        }
         }
 
         match (split_res_left, split_res_right) {
@@ -57,11 +57,11 @@ impl<D: Divider<ITEM = Value>> DivideUsing<D> for DataCell {
 #[cfg(test)]
 mod tests {
     use venum::venum::Value;
-    use venum_tds::{cell::DataCell, traits::DataAccess};
+    use venum_tds::{cell::DataCell, traits::VDataContainerItem};
 
     use crate::{
         traits::item::DivideUsing,
-        value::{ValueStringRegexPairSplitter, ValueStringSeparatorCharDivider},
+        value::{ValueStringRegexPairDivider, ValueStringSeparatorCharDivider},
     };
 
     #[test]
@@ -106,7 +106,7 @@ mod tests {
         );
 
         let sp =
-            ValueStringRegexPairSplitter::from(String::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)"), true)
+            ValueStringRegexPairDivider::from(String::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)"), true)
                 .unwrap();
 
         let mut dc_left =

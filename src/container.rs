@@ -1,8 +1,9 @@
-use venum_tds::traits::{DataAccess, DataContainer, DataIdent};
+use venum::venum::Value;
+use venum_tds::traits::{VDataContainer, VDataContainerItem};
 
 use crate::{
     errors::{ContainerOpsErrors, Result, VenumTdsTransRichError},
-    traits::container::TransrichContainerInplace,
+    traits::{container::TransrichContainerInplace, item::DivideUsing, shared::Divide},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +18,7 @@ impl MutateItemIndex {
 }
 impl<C> TransrichContainerInplace<C> for MutateItemIndex
 where
-    C: DataContainer,
+    C: VDataContainer,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
         let container_entry = data_container.get_by_idx_mut(self.from);
@@ -39,7 +40,7 @@ where
 pub struct DeleteItemByIndex(pub usize);
 impl<C> TransrichContainerInplace<C> for DeleteItemByIndex
 where
-    C: DataContainer,
+    C: VDataContainer,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
         match data_container.del_by_idx(self.0) {
@@ -49,11 +50,11 @@ where
     }
 }
 
-pub struct AddItem<T: DataIdent + DataAccess>(pub T);
+pub struct AddItem<T: VDataContainerItem>(pub T);
 impl<C, D> TransrichContainerInplace<C> for AddItem<D>
 where
-    D: DataIdent + DataAccess + Clone + Default,
-    C: DataContainer<ITEM = D>,
+    D: VDataContainerItem + Clone + Default,
+    C: VDataContainer<ITEM = D>,
 {
     fn apply(&self, data_container: &mut C) -> Result<()> {
         data_container.add(self.0.clone());
@@ -61,12 +62,56 @@ where
     }
 }
 
-// TODO: splitting
+pub struct DivideItemAtIdx<DIV: Divide<ITEM = Value>> {
+    pub idx: usize,
+    pub divider: DIV,
+    pub target_left: (Value, usize, String),
+    pub target_right: (Value, usize, String),
+    pub delete_source_item: bool,
+}
+
+impl<CONT, ENTRY, DIVIMPL> TransrichContainerInplace<CONT> for DivideItemAtIdx<DIVIMPL>
+where
+    DIVIMPL: Divide<ITEM = Value>, // The divider "implementation" to use, to split an ITEM of type Value. This is the lowest level
+    ENTRY: VDataContainerItem + DivideUsing<DIVIMPL, ITEM = ENTRY> + Default, // Entries (of the container) must be container items that also implement "divideUsing", which relies on a certain divide implementation (given above)
+    CONT: VDataContainer<ITEM = ENTRY>, // The container where we want to divide an item inside, making use of the 'divideUsing' of the entry and in turn the 'divide' implementation
+{
+    fn apply(&self, container: &mut CONT) -> Result<()> {
+        let entry = container.get_by_idx_mut(self.idx).ok_or_else(|| {
+            VenumTdsTransRichError::ContainerOps(ContainerOpsErrors::DivideItemError {
+                idx: self.idx,
+                msg: format!("Container does not have an entry at idx: {}", self.idx),
+            })
+        })?;
+
+        let mut t_left = ENTRY::default();
+        t_left.set_type_info(self.target_left.0.clone());
+        t_left.set_idx(self.target_left.1);
+        t_left.set_name(&self.target_left.2);
+
+        let mut t_right = ENTRY::default();
+        t_right.set_type_info(self.target_right.0.clone());
+        t_right.set_idx(self.target_right.1);
+        t_right.set_name(&self.target_right.2);
+
+        let div_res = entry.divide_using(&self.divider, &mut t_left, &mut t_right);
+        if div_res.is_ok() {
+            container.add(t_left);
+            container.add(t_right);
+            if self.delete_source_item {
+                container.del_by_idx(self.idx).unwrap();
+            }
+        }
+        div_res
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use venum::venum::Value;
     use venum_tds::{cell::DataCell, row::DataCellRow};
+
+    use crate::value::{ValueStringRegexPairDivider, ValueStringSeparatorCharDivider};
 
     use super::*;
 
@@ -164,5 +209,183 @@ mod tests {
         assert_eq!(1, c.0.len());
         assert_eq!(10, c.0.first().unwrap().get_idx());
         assert_eq!(String::from("col1"), c.0.first().unwrap().get_name());
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_separator_char_divider() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+            Some(Value::String(String::from("foo:bar"))),
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringSeparatorCharDivider {
+                sep_char: ':',
+                split_none: false,
+            },
+            target_left: (Value::string_default(), 1, String::from("col2")),
+            target_right: (Value::string_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(3, c.0.len());
+        assert_eq!(
+            &Value::String(String::from("foo")),
+            c.get_by_idx(1).unwrap().get_data().unwrap()
+        );
+        assert_eq!(
+            &Value::String(String::from("bar")),
+            c.get_by_idx(2).unwrap().get_data().unwrap()
+        );
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_separator_char_divider_none() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringSeparatorCharDivider {
+                sep_char: ':',
+                split_none: true,
+            },
+            target_left: (Value::string_default(), 1, String::from("col2")),
+            target_right: (Value::string_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(3, c.0.len());
+        assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
+        assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Split(SplitError { msg: \"Value is None, but split_none is false\", src_val: None, details: None })"
+    )]
+    pub fn test_divide_container_item_using_value_string_separator_char_divider_none_but_split_none_is_false(
+    ) {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringSeparatorCharDivider {
+                sep_char: ':',
+                split_none: false, // <--- !!!
+            },
+            target_left: (Value::string_default(), 1, String::from("col2")),
+            target_right: (Value::string_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_regex_pair_divider() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+            Some(Value::String(String::from("1.12 2.23"))),
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringRegexPairDivider::from(
+                "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
+                true,
+            )
+            .unwrap(),
+            target_left: (Value::float32_default(), 1, String::from("col2")),
+            target_right: (Value::float32_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(3, c.0.len());
+        assert_eq!(
+            &Value::Float32(1.12_f32),
+            c.get_by_idx(1).unwrap().get_data().unwrap()
+        );
+        assert_eq!(
+            &Value::Float32(2.23_f32),
+            c.get_by_idx(2).unwrap().get_data().unwrap()
+        );
+    }
+
+    #[test]
+    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringRegexPairDivider::from(
+                "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
+                true,
+            )
+            .unwrap(),
+            target_left: (Value::float32_default(), 1, String::from("col2")),
+            target_right: (Value::float32_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
+
+        assert_eq!(3, c.0.len());
+        assert_eq!(None, c.get_by_idx(1).unwrap().get_data());
+        assert_eq!(None, c.get_by_idx(2).unwrap().get_data());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Split(SplitError { msg: \"Value is None, but split_none is false\", src_val: None, details: None })"
+    )]
+    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none_err() {
+        let mut c = DataCellRow::new();
+        c.0.push(DataCell::new_without_data(
+            Value::string_default(),
+            String::from("col1"),
+            0,
+        ));
+
+        let div_at = DivideItemAtIdx {
+            idx: 0,
+            divider: ValueStringRegexPairDivider::from(
+                "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
+                false,
+            )
+            .unwrap(),
+            target_left: (Value::float32_default(), 1, String::from("col2")),
+            target_right: (Value::float32_default(), 2, String::from("Col3")),
+            delete_source_item: false,
+        };
+
+        div_at.apply(&mut c).unwrap();
     }
 }
