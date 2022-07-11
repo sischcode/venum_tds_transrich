@@ -3,20 +3,20 @@ use venum_tds::traits::{VDataContainer, VDataContainerItem};
 
 use crate::{
     errors::{ContainerOpsErrors, Result, VenumTdsTransRichError},
-    traits::{container::TransrichContainerInplace, item::DivideUsing, shared::Divide},
+    traits::{container::TransrichContainerInplace, item::SplitUsing, value::Split},
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct MutateItemIndex {
+pub struct MutateItemIdx {
     pub from: usize,
     pub to: usize,
 }
-impl MutateItemIndex {
+impl MutateItemIdx {
     pub fn new(from: usize, to: usize) -> Self {
         Self { from, to }
     }
 }
-impl<C> TransrichContainerInplace<C> for MutateItemIndex
+impl<C> TransrichContainerInplace<C> for MutateItemIdx
 where
     C: VDataContainer,
 {
@@ -37,8 +37,8 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DeleteItemByIndex(pub usize);
-impl<C> TransrichContainerInplace<C> for DeleteItemByIndex
+pub struct DeleteItemAtIdx(pub usize);
+impl<C> TransrichContainerInplace<C> for DeleteItemAtIdx
 where
     C: VDataContainer,
 {
@@ -62,18 +62,18 @@ where
     }
 }
 
-pub struct DivideItemAtIdx<DIV: Divide<ITEM = Value>> {
+pub struct SplitItemAtIdx<S: Split> {
     pub idx: usize,
-    pub divider: DIV,
+    pub divider: S,
     pub target_left: (Value, usize, String),
     pub target_right: (Value, usize, String),
     pub delete_source_item: bool,
 }
 
-impl<CONT, ENTRY, DIVIMPL> TransrichContainerInplace<CONT> for DivideItemAtIdx<DIVIMPL>
+impl<CONT, ENTRY, SPLITIMPL> TransrichContainerInplace<CONT> for SplitItemAtIdx<SPLITIMPL>
 where
-    DIVIMPL: Divide<ITEM = Value>, // The divider "implementation" to use, to split an ITEM of type Value. This is the lowest level
-    ENTRY: VDataContainerItem + DivideUsing<DIVIMPL, ITEM = ENTRY> + Default, // Entries (of the container) must be container items that also implement "divideUsing", which relies on a certain divide implementation (given above)
+    SPLITIMPL: Split, // The divider "implementation" to use, to split an ITEM of type Value. This is the lowest level
+    ENTRY: VDataContainerItem + SplitUsing<SPLITIMPL, ITEM = ENTRY> + Default, // Entries (of the container) must be container items that also implement "divideUsing", which relies on a certain divide implementation (given above)
     CONT: VDataContainer<ITEM = ENTRY>, // The container where we want to divide an item inside, making use of the 'divideUsing' of the entry and in turn the 'divide' implementation
 {
     fn apply(&self, container: &mut CONT) -> Result<()> {
@@ -94,7 +94,7 @@ where
         t_right.set_idx(self.target_right.1);
         t_right.set_name(&self.target_right.2);
 
-        let div_res = entry.divide_using(&self.divider, &mut t_left, &mut t_right);
+        let div_res = entry.split_using(&self.divider, &mut t_left, &mut t_right);
         if div_res.is_ok() {
             container.add(t_left);
             container.add(t_right);
@@ -106,18 +106,20 @@ where
     }
 }
 
+// TODO: MergeItemsAs(pub usize, pub usize); separator|template;
+
 #[cfg(test)]
 mod tests {
     use venum::venum::Value;
     use venum_tds::{cell::DataCell, row::DataCellRow};
 
-    use crate::value::{ValueStringRegexPairDivider, ValueStringSeparatorCharDivider};
+    use crate::value_splitting::{ValueStringRegexPairSplit, ValueStringSeparatorCharSplit};
 
     use super::*;
 
     #[test]
-    fn test_mutate_index_of_tds_data_cell() {
-        let m = MutateItemIndex::new(0, 1);
+    fn test_mutate_idx_of_tds_data_cell() {
+        let m = MutateItemIdx::new(0, 1);
 
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -144,10 +146,10 @@ mod tests {
             1,
         ));
 
-        let container_transricher = DeleteItemByIndex(0);
+        let container_transricher = DeleteItemAtIdx(0);
         container_transricher.apply(&mut c).unwrap();
 
-        let container_transricher2 = DeleteItemByIndex(1);
+        let container_transricher2 = DeleteItemAtIdx(1);
         container_transricher2.apply(&mut c).unwrap();
 
         assert_eq!(0, c.0.len());
@@ -157,7 +159,7 @@ mod tests {
     #[should_panic(expected = "Wrapped(VenumTdsError(DataAccess(IllegalIdxAccess { idx: 0 })))")]
     fn test_delete_from_container_err() {
         let mut c = DataCellRow::new();
-        let container_transricher = DeleteItemByIndex(0);
+        let container_transricher = DeleteItemAtIdx(0);
         container_transricher.apply(&mut c).unwrap();
     }
 
@@ -196,9 +198,9 @@ mod tests {
             String::from("col3"),
             2,
         ))));
-        transrichers.push(Box::new(DeleteItemByIndex(1)));
-        transrichers.push(Box::new(DeleteItemByIndex(2)));
-        transrichers.push(Box::new(MutateItemIndex::new(0, 10)));
+        transrichers.push(Box::new(DeleteItemAtIdx(1)));
+        transrichers.push(Box::new(DeleteItemAtIdx(2)));
+        transrichers.push(Box::new(MutateItemIdx::new(0, 10)));
 
         transrichers
             .iter_mut()
@@ -212,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_separator_char_divider() {
+    pub fn test_split_container_item_using_value_string_separator_char_divider() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new(
             Value::string_default(),
@@ -221,9 +223,9 @@ mod tests {
             Some(Value::String(String::from("foo:bar"))),
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharDivider {
+            divider: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false,
             },
@@ -246,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_separator_char_divider_delete_src() {
+    pub fn test_split_container_item_using_value_string_separator_char_divider_delete_src() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new(
             Value::string_default(),
@@ -255,9 +257,9 @@ mod tests {
             Some(Value::String(String::from("foo:bar"))),
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharDivider {
+            divider: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false,
             },
@@ -280,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_separator_char_divider_none() {
+    pub fn test_split_container_item_using_value_string_separator_char_divider_none() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
             Value::string_default(),
@@ -288,9 +290,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharDivider {
+            divider: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: true,
             },
@@ -307,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_separator_char_divider_none_delete_src() {
+    pub fn test_split_container_item_using_value_string_separator_char_divider_none_delete_src() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
             Value::string_default(),
@@ -315,9 +317,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharDivider {
+            divider: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: true,
             },
@@ -337,7 +339,7 @@ mod tests {
     #[should_panic(
         expected = "Split(SplitError { msg: \"Value is None, but split_none is false\", src_val: None, details: None })"
     )]
-    pub fn test_divide_container_item_using_value_string_separator_char_divider_none_but_split_none_is_false(
+    pub fn test_split_container_item_using_value_string_separator_char_divider_none_but_split_none_is_false(
     ) {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
@@ -346,9 +348,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharDivider {
+            divider: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false, // <--- !!!
             },
@@ -361,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_regex_pair_divider() {
+    pub fn test_split_container_item_using_value_string_regex_pair_divider() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new(
             Value::string_default(),
@@ -370,9 +372,9 @@ mod tests {
             Some(Value::String(String::from("1.12 2.23"))),
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairDivider::from(
+            divider: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -396,7 +398,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_regex_pair_divider_delete_src() {
+    pub fn test_split_container_item_using_value_string_regex_pair_divider_delete_src() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new(
             Value::string_default(),
@@ -405,9 +407,9 @@ mod tests {
             Some(Value::String(String::from("1.12 2.23"))),
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairDivider::from(
+            divider: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -431,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none() {
+    pub fn test_split_container_item_using_value_string_regex_pair_divider_none() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
             Value::string_default(),
@@ -439,9 +441,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairDivider::from(
+            divider: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -459,7 +461,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none_delete_src() {
+    pub fn test_split_container_item_using_value_string_regex_pair_divider_none_delete_src() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
             Value::string_default(),
@@ -467,9 +469,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairDivider::from(
+            divider: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -490,7 +492,7 @@ mod tests {
     #[should_panic(
         expected = "Split(SplitError { msg: \"Value is None, but split_none is false\", src_val: None, details: None })"
     )]
-    pub fn test_divide_container_item_using_value_string_regex_pair_divider_none_err() {
+    pub fn test_split_container_item_using_value_string_regex_pair_divider_none_err() {
         let mut c = DataCellRow::new();
         c.0.push(DataCell::new_without_data(
             Value::string_default(),
@@ -498,9 +500,9 @@ mod tests {
             0,
         ));
 
-        let div_at = DivideItemAtIdx {
+        let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairDivider::from(
+            divider: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 false,
             )

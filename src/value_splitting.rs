@@ -3,19 +3,17 @@ use venum::venum::Value;
 
 use crate::{
     errors::{Result, VenumTdsTransRichError, SplitError},
-    traits::shared::{Split, Divide},
+    traits::value::{SplitN, Split},
 };
 
 #[derive(Debug)]
-pub struct ValueStringSeparatorCharDivider {
+pub struct ValueStringSeparatorCharSplit {
     pub sep_char: char,
     pub split_none: bool,
 }
 
-impl Divide for ValueStringSeparatorCharDivider {
-    type ITEM = Value;
-
-    fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
+impl Split for ValueStringSeparatorCharSplit {
+    fn split(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
         if let Some(val) = src {
             match val {
                 Value::String(s) => {
@@ -50,16 +48,14 @@ impl Divide for ValueStringSeparatorCharDivider {
 }
 
 #[derive(Debug)]
-pub struct ValueStringSeparatorCharSplitter {
+pub struct ValueStringSeparatorCharSplitN {
     pub sep_char: char,
     pub split_none: bool,
     pub split_none_into_num_clones: Option<usize>,
 }
 
-impl Split for ValueStringSeparatorCharSplitter {
-    type ITEM = Value;
-
-    fn split(&self, src: &Option<Value>) -> Result<Vec<Option<Value>>> {
+impl SplitN for ValueStringSeparatorCharSplitN {
+    fn split_n(&self, src: &Option<Value>) -> Result<Vec<Option<Value>>> {
         match src {
             None => match (&self.split_none, &self.split_none_into_num_clones) {
                 (true, None) =>  Err(VenumTdsTransRichError::Split(SplitError::minim(String::from(
@@ -108,26 +104,24 @@ impl Split for ValueStringSeparatorCharSplitter {
 
 
 #[derive(Debug)]
-pub struct ValueStringRegexPairDivider {
+pub struct ValueStringRegexPairSplit {
     pub re: Regex,
     pub split_none: bool,
 }
 
-impl ValueStringRegexPairDivider {
+impl ValueStringRegexPairSplit {
     pub fn from(regex_pattern: String, split_none: bool) -> Result<Self> {
         let re = Regex::new(regex_pattern.as_str()).map_err(|e| {
             let mut err_msg = format!("{}", e);
             err_msg.push_str(" (RegexPairSplitter, ERROR_ON_REGEX_COMPILE)");
             VenumTdsTransRichError::Split(SplitError::minim(err_msg))
         })?;
-        Ok(ValueStringRegexPairDivider { re, split_none })
+        Ok(ValueStringRegexPairSplit { re, split_none })
     }
 }
 
-impl Divide for ValueStringRegexPairDivider {
-    type ITEM = Value;
-
-    fn divide(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
+impl Split for ValueStringRegexPairSplit {
+    fn split(&self, src: &Option<Value>) -> Result<(Option<Value>, Option<Value>)> {
         if let Some(val) = src {
             match val {
                 Value::String(s) => {
@@ -172,13 +166,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_divide_seperator_char() {
-        let sep = ValueStringSeparatorCharDivider {
+    fn test_split_seperator_char() {
+        let sep = ValueStringSeparatorCharSplit {
             sep_char: ' ',
             split_none: true,
         };
         let data = Some(Value::from("foo bar".to_string()));
-        let split_res = sep.divide(&data);
+        let split_res = sep.split(&data);
         assert!(split_res.is_ok());
         let split_vals = split_res.unwrap();
         assert_eq!(Some(Value::from("foo".to_string())), split_vals.0);
@@ -186,13 +180,13 @@ mod tests {
     }
 
     #[test]
-    fn test_divide_seperator_char_none() {
-        let sep = ValueStringSeparatorCharDivider {
+    fn test_split_seperator_char_none() {
+        let sep = ValueStringSeparatorCharSplit {
             sep_char: ' ',
             split_none: true,
         };
         let data = None;
-        let split_res = sep.divide(&data);
+        let split_res = sep.split(&data);
         assert!(split_res.is_ok());
         let split_vals = split_res.unwrap();
         assert_eq!(None, split_vals.0);
@@ -203,37 +197,37 @@ mod tests {
     #[should_panic(
         expected = "Split(SplitError { msg: \"expected 2 tokens as result of split, but got:"
     )]
-    fn test_divide_seperator_char_err() {
-        let sep = ValueStringSeparatorCharDivider {
+    fn test_split_seperator_char_err() {
+        let sep = ValueStringSeparatorCharSplit {
             sep_char: ' ',
             split_none: true,
         };
         let data = Some(Value::from("foo bar baz".to_string()));
-        sep.divide(&data).unwrap();
+        sep.split(&data).unwrap();
     }
 
     #[test]
     #[should_panic(
         expected = "Split(SplitError { msg: \"expected 2 tokens as result of split, but got: 1\", src_val: Some(String(\"foo\")), details: None })"
     )]
-    fn test_divide_seperator_char_err2() {
-        let sep = ValueStringSeparatorCharDivider {
+    fn test_split_seperator_char_err2() {
+        let sep = ValueStringSeparatorCharSplit {
             sep_char: ' ',
             split_none: true,
         };
         let data = Some(Value::from("foo".to_string()));
-        sep.divide(&data).unwrap();
+        sep.split(&data).unwrap();
     }
 
     #[test]
-    fn test_split_seperator_char() {
-        let sep = ValueStringSeparatorCharSplitter {
+    fn test_split_n_seperator_char() {
+        let sep = ValueStringSeparatorCharSplitN {
             sep_char: ' ',
             split_none: false,
             split_none_into_num_clones: None
         };
         let data = Some(Value::from("foo bar baz".to_string()));
-        let split_res = sep.split(&data);
+        let split_res = sep.split_n(&data);
         assert!(split_res.is_ok());
         let split_vals = split_res.unwrap();
         assert_eq!(&Some(Value::from("foo".to_string())), split_vals.get(0).unwrap());
@@ -242,14 +236,14 @@ mod tests {
     }
 
     #[test]
-    fn test_split_seperator_char_none() {
-        let sep = ValueStringSeparatorCharSplitter {
+    fn test_split_n_seperator_char_none() {
+        let sep = ValueStringSeparatorCharSplitN {
             sep_char: ' ',
             split_none: true,
             split_none_into_num_clones: Some(3),
         };
         let data = None;
-        let split_res = sep.split(&data);
+        let split_res = sep.split_n(&data);
         assert!(split_res.is_ok());
         let split_vals = split_res.unwrap();
         assert_eq!(&None, split_vals.get(0).unwrap());
@@ -261,25 +255,25 @@ mod tests {
     #[should_panic(
         expected = "Split(SplitError { msg: \"Value is None, split_none is true, but split_none_into_num_clones is not set. Can't split into undefined number of targets!\", src_val: None, details: None })"
     )]
-    fn test_split_seperator_char_none_err_config() {
-        let sep = ValueStringSeparatorCharSplitter {
+    fn test_split_n_seperator_char_none_err_config() {
+        let sep = ValueStringSeparatorCharSplitN {
             sep_char: ' ',
             split_none: true,
             split_none_into_num_clones: None,
         };
         let data = None;
-        sep.split(&data).unwrap();
+        sep.split_n(&data).unwrap();
     }
 
     #[test]
-    fn test_split_regex_pair() {
+    fn test_split_n_regex_pair() {
         let sep_res =
-            ValueStringRegexPairDivider::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairSplit::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
         let data = Some(Value::from("1.12 2.23".to_string()));
-        let split_res = sep.divide(&data);
+        let split_res = sep.split(&data);
         assert!(split_res.is_ok());
         let split_vals = split_res.unwrap();
         assert_eq!(Some(Value::from("1.12".to_string())), split_vals.0);
@@ -290,33 +284,33 @@ mod tests {
     #[should_panic(
         expected = "Split(SplitError { msg: \"No captures, but we need exactly two.\""
     )]
-    fn test_split_regex_err_no_captures() {
+    fn test_split_n_regex_err_no_captures() {
         let sep_res =
-            ValueStringRegexPairDivider::from("(\\d+\\.\\d+).*(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairSplit::from("(\\d+\\.\\d+).*(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
         let data = Some(Value::from("1.12 2.23".to_string()));
-        sep.divide(&data).unwrap();
+        sep.split(&data).unwrap();
     }
 
     #[test]
     #[should_panic(
         expected = "Split(SplitError { msg: \"1 capture group(s), but we need exactly two.\""
     )]
-    fn test_split_regex_err_too_few_capture_groups() {
+    fn test_split_n_regex_err_too_few_capture_groups() {
         let sep_res =
-            ValueStringRegexPairDivider::from("(\\d+\\.\\d+)".to_string(), true);
+            ValueStringRegexPairSplit::from("(\\d+\\.\\d+)".to_string(), true);
         assert!(sep_res.is_ok());
         let sep = sep_res.unwrap();
 
         let data = Some(Value::from("1.12 2.23".to_string()));
-        sep.divide(&data).unwrap();
+        sep.split(&data).unwrap();
     }
 
     #[test]
-    fn test_split_regex_pair_illegal_regex() {
-        let sep_res = ValueStringRegexPairDivider::from("FWPUJWDJW/)!(!()?))".to_string(), true);
+    fn test_split_n_regex_pair_illegal_regex() {
+        let sep_res = ValueStringRegexPairSplit::from("FWPUJWDJW/)!(!()?))".to_string(), true);
         assert!(sep_res.is_err());
     }
 }
