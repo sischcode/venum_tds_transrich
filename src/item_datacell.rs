@@ -3,19 +3,19 @@ use venum_tds::cell::DataCell;
 
 use crate::{
     errors::{Result, SplitError, VenumTdsTransRichError},
-    traits::{item::DivideUsing, shared::Divide},
+    traits::{item::SplitUsing, value::Split},
 };
 
-impl<D: Divide<ITEM = Value>> DivideUsing<D> for DataCell {
+impl<D: Split> SplitUsing<D> for DataCell {
     type ITEM = Self;
 
-    fn divide_using(
+    fn split_using(
         &self,
         splitter_impl: &D,
         dst_left: &mut DataCell,
         dst_right: &mut DataCell,
     ) -> Result<()> {
-        let (split_res_left, split_res_right) = splitter_impl.divide(&self.data)?;
+        let (split_res_left, split_res_right) = splitter_impl.split(&self.data)?;
 
         fn converse_to(val: &Value, type_info: &Value) -> Result<Option<Value>> {
             match val {
@@ -54,14 +54,16 @@ impl<D: Divide<ITEM = Value>> DivideUsing<D> for DataCell {
     }
 }
 
+// TODO: merge
+
 #[cfg(test)]
 mod tests {
     use venum::venum::Value;
     use venum_tds::{cell::DataCell, traits::VDataContainerItem};
 
     use crate::{
-        traits::item::DivideUsing,
-        value::{ValueStringRegexPairDivider, ValueStringSeparatorCharDivider},
+        traits::item::SplitUsing,
+        value_splitting::{ValueStringRegexPairSplit, ValueStringSeparatorCharSplit},
     };
 
     #[test]
@@ -73,7 +75,7 @@ mod tests {
             Some(Value::from(String::from("true;1.12"))),
         );
 
-        let sp = ValueStringSeparatorCharDivider {
+        let sp = ValueStringSeparatorCharSplit {
             sep_char: ';',
             split_none: true,
         };
@@ -83,7 +85,7 @@ mod tests {
         let mut dc_right =
             DataCell::new_without_data(Value::float32_default(), String::from("f32_val"), 2);
 
-        let res = dc1.divide_using(&sp, &mut dc_left, &mut dc_right);
+        let res = dc1.split_using(&sp, &mut dc_left, &mut dc_right);
         assert!(res.is_ok());
 
         assert!(dc_left.get_data().is_some());
@@ -106,7 +108,7 @@ mod tests {
         );
 
         let sp =
-            ValueStringRegexPairDivider::from(String::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)"), true)
+            ValueStringRegexPairSplit::from(String::from("(\\d+\\.\\d+).*(\\d+\\.\\d+)"), true)
                 .unwrap();
 
         let mut dc_left =
@@ -114,7 +116,7 @@ mod tests {
         let mut dc_right =
             DataCell::new_without_data(Value::float32_default(), String::from("f32_val_right"), 2);
 
-        let res = dc1.divide_using(&sp, &mut dc_left, &mut dc_right);
+        let res = dc1.split_using(&sp, &mut dc_left, &mut dc_right);
         assert!(res.is_ok());
 
         assert!(dc_left.get_data().is_some());

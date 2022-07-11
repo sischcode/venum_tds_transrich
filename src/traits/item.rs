@@ -1,13 +1,13 @@
 use crate::errors::Result;
 
-use super::shared::Divide;
+use super::value::Split;
 
-pub trait DivideUsing<D: Divide> {
+pub trait SplitUsing<D: Split> {
     type ITEM;
 
-    fn divide_using(
+    fn split_using(
         &self,
-        divider: &D,
+        split_impl: &D,
         dst_left: &mut Self::ITEM,
         dst_right: &mut Self::ITEM,
     ) -> Result<()>;
