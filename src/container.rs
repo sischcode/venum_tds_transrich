@@ -64,7 +64,7 @@ where
 
 pub struct SplitItemAtIdx<S: Split> {
     pub idx: usize,
-    pub divider: S,
+    pub splitter: S,
     pub target_left: (Value, usize, String),
     pub target_right: (Value, usize, String),
     pub delete_source_item: bool,
@@ -72,13 +72,13 @@ pub struct SplitItemAtIdx<S: Split> {
 
 impl<CONT, ENTRY, SPLITIMPL> TransrichContainerInplace<CONT> for SplitItemAtIdx<SPLITIMPL>
 where
-    SPLITIMPL: Split, // The divider "implementation" to use, to split an ITEM of type Value. This is the lowest level
-    ENTRY: VDataContainerItem + SplitUsing<SPLITIMPL, ITEM = ENTRY> + Default, // Entries (of the container) must be container items that also implement "divideUsing", which relies on a certain divide implementation (given above)
-    CONT: VDataContainer<ITEM = ENTRY>, // The container where we want to divide an item inside, making use of the 'divideUsing' of the entry and in turn the 'divide' implementation
+    SPLITIMPL: Split, // The splitter "implementation" to use, to split an ITEM of type Value. This is the lowest level
+    ENTRY: VDataContainerItem + SplitUsing<SPLITIMPL, ITEM = ENTRY> + Default, // Entries (of the container) must be container items that also implement "splitUsing", which relies on a certain split implementation (given above)
+    CONT: VDataContainer<ITEM = ENTRY>, // The container where we want to split an item inside, making use of the 'splitUsing' of the entry and in turn the 'split' implementation
 {
     fn apply(&self, container: &mut CONT) -> Result<()> {
         let entry = container.get_by_idx_mut(self.idx).ok_or_else(|| {
-            VenumTdsTransRichError::ContainerOps(ContainerOpsErrors::DivideItemError {
+            VenumTdsTransRichError::ContainerOps(ContainerOpsErrors::SplitItemError {
                 idx: self.idx,
                 msg: format!("Container does not have an entry at idx: {}", self.idx),
             })
@@ -94,7 +94,7 @@ where
         t_right.set_idx(self.target_right.1);
         t_right.set_name(&self.target_right.2);
 
-        let div_res = entry.split_using(&self.divider, &mut t_left, &mut t_right);
+        let div_res = entry.split_using(&self.splitter, &mut t_left, &mut t_right);
         if div_res.is_ok() {
             container.add(t_left);
             container.add(t_right);
@@ -105,8 +105,6 @@ where
         div_res
     }
 }
-
-// TODO: MergeItemsAs(pub usize, pub usize); separator|template;
 
 #[cfg(test)]
 mod tests {
@@ -225,7 +223,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharSplit {
+            splitter: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false,
             },
@@ -259,7 +257,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharSplit {
+            splitter: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false,
             },
@@ -292,7 +290,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharSplit {
+            splitter: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: true,
             },
@@ -319,7 +317,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharSplit {
+            splitter: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: true,
             },
@@ -350,7 +348,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringSeparatorCharSplit {
+            splitter: ValueStringSeparatorCharSplit {
                 sep_char: ':',
                 split_none: false, // <--- !!!
             },
@@ -374,7 +372,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairSplit::from(
+            splitter: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -409,7 +407,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairSplit::from(
+            splitter: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -443,7 +441,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairSplit::from(
+            splitter: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -471,7 +469,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairSplit::from(
+            splitter: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 true,
             )
@@ -502,7 +500,7 @@ mod tests {
 
         let div_at = SplitItemAtIdx {
             idx: 0,
-            divider: ValueStringRegexPairSplit::from(
+            splitter: ValueStringRegexPairSplit::from(
                 "(\\d+\\.\\d+).*(\\d+\\.\\d+)".to_string(),
                 false,
             )

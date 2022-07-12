@@ -1,0 +1,77 @@
+[{
+    "comment": "pass1",
+    "transformers": [{
+        "type": "deleteItems",
+        "cfg": [0, 1]
+    }, {
+        "type": "splitItem",
+        "cfg": {
+            "idx": 2,
+            "spec": {
+                "name": "pattern",
+                "pattern": "(\\d+\\.\\d+) \\(([[:alpha:]].+)\\)"
+            },
+            "deleteAfterSplit": true,
+            "targetLeft": {
+                "idx": 10,
+                "header": "some_thing1",
+                "targetType": "Float32"
+            },
+            "targetRight": {
+                "idx": 11,
+                "header": "some_thing2",
+                "targetType": "String"
+            }
+        }
+    }, {
+        "type": "addItem",
+        "cfg": {
+            "spec": {
+                "name": "static",
+                "value": "true 666"
+            },
+            "target": {
+                "idx": 12,
+                "header": "some_thing3",
+                "targetType": "String"
+            }
+        }
+    }],
+    "orderItems": [
+        { "from": 3, "to": 0 },
+        { "from": 4, "to": 1 },
+        { "from": 10, "to": 2 },
+        { "from": 11, "to": 3 },
+        { "from": 12, "to": 4 }
+    ]
+}, {
+    "comment": "pass2",
+    "transformers": [{
+        "type": "splitItem",
+        "cfg": {
+            "idx": 4,
+            "spec": {
+                "name": "separatorChar",
+                "char": " "
+            },
+            "deleteAfterSplit": false,
+            "targetLeft": {
+                "idx": 5,
+                "header": "staticdata_left",
+                "targetType": "Bool"
+            },
+            "targetRight": {
+                "idx": 6,
+                "header": "staticdata_right",
+                "targetType": "Integer"
+            }
+        }
+    }, {
+        "type": "deleteItems",
+        "cfg": [4]
+    }],
+    "orderColumns": [
+        { "from": 5, "to": 4 },
+        { "from": 6, "to": 5 }
+    ]
+}]

@@ -12,3 +12,15 @@ pub trait SplitUsing<D: Split> {
         dst_right: &mut Self::ITEM,
     ) -> Result<()>;
 }
+
+// pub trait SplitUsing2 {
+//     type ITEM;
+//     type SPLITIMPL: Split;
+
+//     fn split_using(
+//         &self,
+//         split_impl: &Self::SPLITIMPL,
+//         dst_left: &mut Self::ITEM,
+//         dst_right: &mut Self::ITEM,
+//     ) -> Result<()>;
+// }

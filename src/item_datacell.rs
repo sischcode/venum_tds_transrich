@@ -12,8 +12,8 @@ impl<D: Split> SplitUsing<D> for DataCell {
     fn split_using(
         &self,
         splitter_impl: &D,
-        dst_left: &mut DataCell,
-        dst_right: &mut DataCell,
+        dst_left: &mut Self::ITEM,
+        dst_right: &mut Self::ITEM,
     ) -> Result<()> {
         let (split_res_left, split_res_right) = splitter_impl.split(&self.data)?;
 
@@ -122,7 +122,10 @@ mod tests {
         assert!(dc_left.get_data().is_some());
         assert!(dc_right.get_data().is_some());
 
-        assert_eq!(1.12f32, dc_left.get_data().unwrap().try_into().unwrap());
-        assert_eq!(2.23f32, dc_right.get_data().unwrap().try_into().unwrap());
+        assert_eq!(1.12f32, f32::try_from(dc_left.get_data().unwrap()).unwrap());
+        assert_eq!(
+            2.23f32,
+            f32::try_from(dc_right.get_data().unwrap()).unwrap()
+        );
     }
 }

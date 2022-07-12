@@ -13,7 +13,7 @@ pub enum WrappedErrors {
 #[derive(Debug, PartialEq, Display, Clone)]
 pub enum ContainerOpsErrors {
     Generic { msg: String },
-    DivideItemError { idx: usize, msg: String },
+    SplitItemError { idx: usize, msg: String },
 }
 
 #[derive(Debug, PartialEq, Display, Clone)]
